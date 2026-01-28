@@ -11,6 +11,8 @@ st.set_page_config(page_title="AIリサーチ・プロ", page_icon="🔬", layou
 st.title("🔬 AIプロフェッショナル・リサーチ")
 st.write("安定版のエンジンを使用して、Google検索とWikipediaを統合調査します。")
 
+
+
 # 3. リサーチ機能（Google検索グラウンディング対応）
 def perform_research(query):
     # Google検索ツールを定義
@@ -22,6 +24,7 @@ def perform_research(query):
     キーワード: {query}
     【要件】概要、最新動向3点、ソースの明記。
     """
+    
     
     response = model.generate_content(prompt)
     return response
@@ -41,3 +44,4 @@ if st.button("リサーチを開始"):
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+

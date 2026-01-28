@@ -1,5 +1,6 @@
 import streamlit as st
-from google import genai
+import google.genai as genai  # ←ここを「from google import genai」から書き換え
+import wikipediaapi
 
 # 1. 秘密の場所からAPIキーを読み込む 🔑
 API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -89,4 +90,5 @@ if st.button("プロフェッショナル調査を開始"):
                 else:
                     st.error(f"エラーが発生しました: {e}")
     else:
+
         st.warning("キーワードを入力してください。")

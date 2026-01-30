@@ -38,34 +38,54 @@ target_model_name = get_best_available_model()
 # どのモデルが選ばれたか表示（開発中の安心感のため）
 st.info(f"✅ 使用中のモデル: `{target_model_name}`")
 
-# 4. リサーチ実行関数（2026年最新仕様に対応）
+# app.py の perform_research 関数を以下に丸ごと差し替え
 def perform_research(query, model_full_name):
-    # 【ポイント1】変数のエラーを防ぐため、最初に指示書(prompt)を作成
     prompt = f"""
     あなたは高度な専門知識を持つシニアリサーチアナリストです。
     以下のキーワードについて、Google検索を用いて最新かつ正確な情報を調査し、レポートを作成してください。
-
     キーワード: {query}
-
-    【レポート構成】
-    1. 概要と現状
-    2. 重要なトピックや最新の動向（3点以上）
-    3. 今後の展望または専門的な考察
-    4. 参照ソースの明記
+    【レポート構成】概要、最新動向3点、今後の展望、参照ソース。
     """
 
-    # 【ポイント2】最新の命名規則 'google_search' を使用
-    # 辞書形式ではなく、リスト形式で指定するのが現在の最も安定した書き方です
-    tools = [{'google_search': {}}]
-    
-    try:
-        model = genai.GenerativeModel(model_name=model_full_name, tools=tools)
-        response = model.generate_content(prompt)
-        return response
-    except Exception as e:
-        # 万が一のエラーハンドリング
-        st.error(f"モデル実行中にエラーが発生しました: {e}")
-        return None
+    # モデル名に合わせて、ツール名の候補を準備（2.0系ならgoogle_searchが優先）
+    if "2.0" in model_full_name:
+        tool_names = ["google_search", "google_search_retrieval"]
+    else:
+        tool_names = ["google_search_retrieval", "google_search"]
+
+    last_error = None
+    for t_name in tool_names:
+        try:
+            # 辞書形式ではなく「文字列」で渡すのが、2026年現在のSDKで最もエラーが少ない方法です
+            model = genai.GenerativeModel(model_name=model_full_name, tools=t_name)
+            response = model.generate_content(prompt)
+            # 無事にレスポンスが取得できれば、それを返す
+            if response and response.text:
+                return response
+        except Exception as e:
+            last_error = e
+            continue # 失敗したら次の名前を試す
+
+    # すべて失敗した場合は、エラー内容を画面に出すために例外を投げる
+    raise Exception(f"すべての検索方式でエラーが発生しました。最新のエラー: {last_error}")
+
+# --- UI部分の修正（NoneTypeエラー対策） ---
+if st.button("プロフェッショナル調査を開始"):
+    if keyword and target_model_name:
+        with st.spinner(f"「{keyword}」を分析中..."):
+            try:
+                result = perform_research(keyword, target_model_name)
+                
+                # ここで「resultが空でないか」をしっかりチェック（NoneType対策）
+                if result and hasattr(result, 'text') and result.text:
+                    st.success("分析が完了しました！")
+                    st.markdown("---")
+                    st.markdown(result.text)
+                else:
+                    st.error("AIからの回答が空でした。別のキーワードで試してください。")
+
+            except Exception as e:
+                st.error(f"エラーが発生しました: {e}")
         
 # 5. UI（ユーザーインターフェース）
 keyword = st.text_input("調査したいテーマを入力してください", placeholder="例：最新のAIトレンド, 特定の機材の評価など")
@@ -82,6 +102,7 @@ if st.button("プロフェッショナル調査を開始"):
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+
 
 
 

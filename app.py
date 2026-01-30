@@ -29,25 +29,31 @@ st.info(f"✅ 使用中のモデル: `{target_model_name}`")
 
 # 4. リサーチ実行関数（2026年最新仕様・二段構え）
 def perform_research(query, model_full_name):
-    prompt = f"""
-    あなたは高度な専門知識を持つシニアリサーチアナリストです。
-    キーワード: {query} について、Google検索を用いて最新かつ正確なレポートを作成してください。
-    【要件】概要、最新動向3点、今後の展望、参照ソース。
-    """
+    prompt = f"キーワード: {query} について、最新の情報を調査しレポートを作成してください。"
 
-    # 2.0系なら "google_search"、1.5系なら "google_search_retrieval" を優先
-    tool_candidates = ["google_search", "google_search_retrieval"] if "2.0" in model_full_name else ["google_search_retrieval", "google_search"]
-
-    for t_name in tool_candidates:
+    # 診断のために、エラーを隠さず表示するように書き換えます
+    try:
+        # 現在のGoogle AI Studioで最も標準的な形式
+        model = genai.GenerativeModel(
+            model_name=model_full_name, 
+            tools=[{"google_search": {}}]
+        )
+        return model.generate_content(prompt)
+    except Exception as e1:
+        st.warning(f"方式1でエラー: {e1}")
         try:
-            model = genai.GenerativeModel(model_name=model_full_name, tools=t_name)
-            response = model.generate_content(prompt)
-            if response and response.text:
-                return response
-        except:
-            continue
-    
-    raise Exception("現在、Google検索機能が一時的に利用できません。")
+            # 1.5系で使われていた形式
+            model = genai.GenerativeModel(
+                model_name=model_full_name, 
+                tools=[{"google_search_retrieval": {}}]
+            )
+            return model.generate_content(prompt)
+        except Exception as e2:
+            # どちらもダメだった場合、詳細な理由を画面に出す
+            st.error("🔬 診断レポート:")
+            st.write(f"方式1（google_search）のエラー: {e1}")
+            st.write(f"方式2（google_search_retrieval）のエラー: {e2}")
+            return None
 
 # 5. UI（ここがエラーの原因でした。ボタンは1つだけにします）
 keyword = st.text_input("調査したいテーマを入力してください", placeholder="例：最新のトロンボーン価格, ドイツ哲学 現代的意義")
@@ -68,3 +74,4 @@ if st.button("プロフェッショナル調査を開始", key="research_button"
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+

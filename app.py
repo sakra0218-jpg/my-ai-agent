@@ -27,35 +27,23 @@ def get_best_available_model():
 target_model_name = get_best_available_model()
 st.info(f"✅ 使用中のモデル: `{target_model_name}`")
 
-# 4. リサーチ実行関数（2026年・Google検索完全対応版）
+# 4. リサーチ実行関数（2026年最新・完全版）
 def perform_research(query, model_full_name):
-    # 指示書を先に作成
+    # 変数エラーを防ぐため、最初に prompt を定義
     prompt = f"キーワード: {query} について、Google検索を使用して最新情報を調査し、詳細なレポートを作成してください。"
 
-    # 【重要】辞書形式 {"google_search": {}} だとSDKがエラーを出す場合があるため、
-    # 2026年の最新SDKで推奨されている「文字列での直接指定」を行います。
-    # これにより、内部的な名前の不一致をバイパスできます。
+    # 最新のライブラリ（0.8.8以上）では、文字列で "google_search" と書くのが
+    # サーバーとSDKの不一致を回避する最も確実な「実戦的」な方法です。
     try:
         model = genai.GenerativeModel(
             model_name=model_full_name,
-            tools="google_search"  # 文字列で指定するのがコツです
+            tools="google_search"  # シンプルに文字列で指定
         )
         response = model.generate_content(prompt)
-        
-        if response and response.text:
-            return response
-        else:
-            raise Exception("AIからの回答が空でした。")
-            
+        return response
     except Exception as e:
-        # 万が一、文字列指定も拒否された場合の「最終手段」
-        # プロトコルを介さず、より生に近い形式で再試行します
-        st.warning("接続方式を微調整して再試行中...")
-        model = genai.GenerativeModel(
-            model_name=model_full_name,
-            tools=[{"google_search": {}}]
-        )
-        return model.generate_content(prompt)
+        # 万が一失敗した場合は、詳細なエラーを出して原因を特定しやすくします
+        raise Exception(f"Google検索の起動に失敗しました: {e}")
 
 # 5. UI（ここがエラーの原因でした。ボタンは1つだけにします）
 keyword = st.text_input("調査したいテーマを入力してください", placeholder="例：最新のトロンボーン価格, ドイツ哲学 現代的意義")
@@ -76,6 +64,7 @@ if st.button("プロフェッショナル調査を開始", key="research_button"
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+
 
 
 

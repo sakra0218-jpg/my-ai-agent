@@ -38,10 +38,9 @@ target_model_name = get_best_available_model()
 # どのモデルが選ばれたか表示（開発中の安心感のため）
 st.info(f"✅ 使用中のモデル: `{target_model_name}`")
 
-# 4. リサーチ実行関数（エラーを回避する堅牢な設計）
+# 4. リサーチ実行関数（2026年最新仕様に対応）
 def perform_research(query, model_full_name):
-    # 【修正ポイント1】まず最初に「指示書（prompt）」を完璧に作っておく
-    # これにより、どの実行ルートを通っても prompt が見つからないエラーは起きません
+    # 【ポイント1】変数のエラーを防ぐため、最初に指示書(prompt)を作成
     prompt = f"""
     あなたは高度な専門知識を持つシニアリサーチアナリストです。
     以下のキーワードについて、Google検索を用いて最新かつ正確な情報を調査し、レポートを作成してください。
@@ -55,19 +54,18 @@ def perform_research(query, model_full_name):
     4. 参照ソースの明記
     """
 
-    # 【修正ポイント2】二段構えの検索ツール実行
+    # 【ポイント2】最新の命名規則 'google_search' を使用
+    # 辞書形式ではなく、リスト形式で指定するのが現在の最も安定した書き方です
+    tools = [{'google_search': {}}]
+    
     try:
-        # 2026年現在の最新形式で挑戦
-        tools = "google_search" 
         model = genai.GenerativeModel(model_name=model_full_name, tools=tools)
-        return model.generate_content(prompt)
-        
+        response = model.generate_content(prompt)
+        return response
     except Exception as e:
-        # もし上記で失敗（Unknown field等）した場合、旧形式でリトライ
-        st.warning("接続方式を切り替えて再試行しています...")
-        alt_tools = [{'google_search_retrieval': {}}]
-        model = genai.GenerativeModel(model_name=model_full_name, tools=alt_tools)
-        return model.generate_content(prompt)
+        # 万が一のエラーハンドリング
+        st.error(f"モデル実行中にエラーが発生しました: {e}")
+        return None
         
 # 5. UI（ユーザーインターフェース）
 keyword = st.text_input("調査したいテーマを入力してください", placeholder="例：最新のAIトレンド, 特定の機材の評価など")
@@ -84,5 +82,6 @@ if st.button("プロフェッショナル調査を開始"):
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+
 
 

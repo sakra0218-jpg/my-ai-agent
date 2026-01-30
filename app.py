@@ -27,39 +27,35 @@ def get_best_available_model():
 target_model_name = get_best_available_model()
 st.info(f"✅ 使用中のモデル: `{target_model_name}`")
 
-# 4. リサーチ実行関数（プロトコル直接指定でエラーを回避）
+# 4. リサーチ実行関数（2026年・Google検索完全対応版）
 def perform_research(query, model_full_name):
-    prompt = f"キーワード: {query} について、Google検索を用いて最新の正確なレポートを作成してください。"
+    # 指示書を先に作成
+    prompt = f"キーワード: {query} について、Google検索を使用して最新情報を調査し、詳細なレポートを作成してください。"
 
-    # 【重要】辞書形式ではなく、モデルに合わせたツール定義を生成します
-    # 2.0系と1.5系で名前が混在している現状を突破する書き方です
-    
+    # 【重要】辞書形式 {"google_search": {}} だとSDKがエラーを出す場合があるため、
+    # 2026年の最新SDKで推奨されている「文字列での直接指定」を行います。
+    # これにより、内部的な名前の不一致をバイパスできます。
     try:
-        # まず、2026年の標準である google_search 形式を試みます
-        # 内部的な proto 構造を模倣することで "Unknown field" を回避します
+        model = genai.GenerativeModel(
+            model_name=model_full_name,
+            tools="google_search"  # 文字列で指定するのがコツです
+        )
+        response = model.generate_content(prompt)
+        
+        if response and response.text:
+            return response
+        else:
+            raise Exception("AIからの回答が空でした。")
+            
+    except Exception as e:
+        # 万が一、文字列指定も拒否された場合の「最終手段」
+        # プロトコルを介さず、より生に近い形式で再試行します
+        st.warning("接続方式を微調整して再試行中...")
         model = genai.GenerativeModel(
             model_name=model_full_name,
             tools=[{"google_search": {}}]
         )
-        response = model.generate_content(prompt)
-        if response and response.text:
-            return response
-    except Exception as e:
-        # 万が一 Unknown field が出た場合、文字列指定で再試行します
-        # 一部のSDKバージョンではこの「文字列渡し」が魔法のように効きます
-        try:
-            model = genai.GenerativeModel(model_name=model_full_name, tools="google_search")
-            response = model.generate_content(prompt)
-            if response and response.text:
-                return response
-        except:
-            # 最終手段：1.5系で動作が保証されている古い形式にフォールバック
-            # APIが「古い」と言っても、SDKが新しい名前を知らない場合はこちらが通ります
-            model = genai.GenerativeModel(
-                model_name=model_full_name,
-                tools=[{"google_search_retrieval": {}}]
-            )
-            return model.generate_content(prompt)
+        return model.generate_content(prompt)
 
 # 5. UI（ここがエラーの原因でした。ボタンは1つだけにします）
 keyword = st.text_input("調査したいテーマを入力してください", placeholder="例：最新のトロンボーン価格, ドイツ哲学 現代的意義")
@@ -80,5 +76,6 @@ if st.button("プロフェッショナル調査を開始", key="research_button"
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+
 
 

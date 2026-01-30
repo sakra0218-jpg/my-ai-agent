@@ -38,28 +38,37 @@ target_model_name = get_best_available_model()
 # どのモデルが選ばれたか表示（開発中の安心感のため）
 st.info(f"✅ 使用中のモデル: `{target_model_name}`")
 
-# 4. リサーチ実行関数（Google検索グラウンディング）
+# 4. リサーチ実行関数（最新の仕様に対応）
 def perform_research(query, model_full_name):
-    # Google検索ツールを定義
-    tools = [{'google_search': {}}]
-    model = genai.GenerativeModel(model_name=model_full_name, tools=tools)
+    # 【ここが修正ポイント】
+    # 最新のライブラリでは、文字列で指定するのが最もエラーが少ない「実戦的」な方法です
+    tools = "google_search" 
     
-    prompt = f"""
-    あなたは高度な専門知識を持つシニアリサーチアナリストです。
-    以下のキーワードについて、Google検索を用いて最新かつ正確な情報を調査し、レポートを作成してください。
+    try:
+        model = genai.GenerativeModel(model_name=model_full_name, tools=tools)
+        
+        prompt = f"""
+        あなたは高度な専門知識を持つシニアリサーチアナリストです。
+        以下のキーワードについて、Google検索を用いて最新かつ正確な情報を調査し、レポートを作成してください。
 
-    キーワード: {query}
+        キーワード: {query}
 
-    【レポート構成】
-    1. 概要と現状
-    2. 重要なトピックや最新の動向（3点以上）
-    3. 今後の展望または専門的な考察
-    4. 参照ソースの明記
-    """
-    
-    response = model.generate_content(prompt)
-    return response
-
+        【レポート構成】
+        1. 概要と現状
+        2. 重要なトピックや最新の動向（3点以上）
+        3. 今後の展望または専門的な考察
+        4. 参照ソースの明記
+        """
+        
+        response = model.generate_content(prompt)
+        return response
+    except Exception as e:
+        # 万が一 "google_search" が通らない古いモデルの場合の予備策
+        st.warning("最新の検索ツールを試行中...")
+        alt_tools = [{'google_search_retrieval': {}}]
+        model = genai.GenerativeModel(model_name=model_full_name, tools=alt_tools)
+        return model.generate_content(prompt)
+        
 # 5. UI（ユーザーインターフェース）
 keyword = st.text_input("調査したいテーマを入力してください", placeholder="例：最新のAIトレンド, 特定の機材の評価など")
 
@@ -75,3 +84,4 @@ if st.button("プロフェッショナル調査を開始"):
                 st.error(f"エラーが発生しました: {e}")
     else:
         st.warning("キーワードを入力してください。")
+
